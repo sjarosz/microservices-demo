@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Kustomization
+namespace: default 
+
+
+# The env vars below can be passed into a pod using the envFrom pod spec.
+# These global variables can be used to parameterize your deployments.
+# The FQDN and URLs here should match your ingress or istio gateway definitions
+generatorOptions:
+  disableNameSuffixHash: true
+    #########################################################
+secretGenerator:
+  # generate a tls Secret
+- name: app-tls
+  files:
+    - secret/tls.crt
+    - secret/tls.key
+  type: "kubernetes.io/tls"
+
