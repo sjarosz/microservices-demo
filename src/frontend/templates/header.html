@@ -31,10 +31,83 @@
     <link rel="stylesheet" type="text/css" href="/static/styles/styles.css">
     <link rel="stylesheet" type="text/css" href="/static/styles/cart.css">
     <link rel="stylesheet" type="text/css" href="/static/styles/order.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/fr-ui.css">
     <link rel='shortcut icon' type='image/x-icon' href='/static/favicon.ico' />
 </head>
 
 <body>
+    <script src="/static/js/index.js"></script>    
+    <script>
+        /*
+         * @forgerock/javascript-sdk
+         *
+         * index.html
+         *
+         * Copyright (c) 2020 ForgeRock. All rights reserved.
+         * This software may be modified and distributed under the terms
+         * of the MIT license. See the LICENSE file for details.
+         */
+    
+        async function login() {
+          const targetId = 'fr-ui';
+          const target = document.getElementById(targetId);
+          const url = new URL(window.location.href);
+          const tree = url.searchParams.get('tree');
+          const suspendedId = url.searchParams.get('suspendedId');
+          const realmPath = url.searchParams.get('realm');
+    
+          // Used for suspended email node
+          let options;
+    
+          // Check to make sure appropriate trees have been added to the anchors
+          if (tree && tree.includes('{')) {
+            const errorText = 'Error: add your AM trees to this page\'s anchor tags.';
+            target.innerHTML = errorText;
+            console.log(errorText);
+          }
+    
+          forgerock.Config.set({
+            serverConfig: {
+                baseUrl: 'https://openam-ciam-fr.forgeblocks.com/am/', // string; e.g. 'https://openam.example.com:9443/openam/'
+                timeout: '20000' // number; 90000 or less
+            },
+            realmPath: realmPath || 'alpha', // string; e.g. 'root'
+            tree: tree || 'Baseline-Start', // string; e.g. 'UsernamePassword'; update hrefs above too!
+
+          });
+    
+          if (suspendedId) {
+            options = {
+              query: {
+                suspendedId,
+              },
+              realmPath,
+            };
+          }
+    
+          const frui = new forgerock.FRUI();
+          const result = await frui.getSession(options);
+    
+          console.log(result);
+    
+          if (result.type === 'LoginSuccess') {
+            target.innerHTML = `Success:<br/>${result.getSessionToken()}<br/><br/>Logging out in 3 seconds...`;
+            setTimeout(async () => {
+              await forgerock.SessionManager.logout();
+              window.location.assign(`${url.origin}${url.pathname}`);
+            }, 3000);
+          } else {
+            const errorText = `Error: ${result.getMessage()}. Check your SDK configuration values.`;
+            console.error(errorText);
+            target.innerHTML = errorText;
+          }
+        }
+    
+        window.addEventListener('load', login);
+      </script>
+
+
+
     <header>
         <div class="navbar">
             <div class="container d-flex justify-content-between">
@@ -76,6 +149,7 @@
                 </div>
             </div>
         </div>
+
 
     </header>
     {{end}}

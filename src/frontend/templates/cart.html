@@ -16,6 +16,7 @@
 
 {{ define "cart" }}
     {{ template "header" . }}
+   
     <div {{ with $.platform_css }} class="{{.}}" {{ end }}>
         <span class="platform-flag">
           {{$.platform_name}}
@@ -66,6 +67,10 @@
                         </div>
                     </div>
                     {{ end }}
+<hr>
+                    <div id="fr-ui">Loading...</div>
+<hr>
+
                     <div class="row pt-2 my-3">
                         <div class="col text-center order-summary">
                             <p class="text-muted my-0">Shipping Cost: <strong>{{ renderMoney .shipping_cost }}</strong></p>
