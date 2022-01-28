@@ -81,7 +81,9 @@
                 timeout: '20000' // number; 90000 or less
             },
             realmPath: realmPath || 'alpha', // string; e.g. 'root'
-            tree: tree || 'Baseline-Start', // string; e.g. 'UsernamePassword'; update hrefs above too!
+            scope: 'openid profile address phone email fr:idm:*',
+
+            tree: tree || 'MFA', // string; e.g. 'UsernamePassword'; update hrefs above too!
 
           });
     
@@ -100,8 +102,10 @@
           console.log(result);
     
           if (result.type === 'LoginSuccess') {
-            target.innerHTML = `Success:<br/>${result.getSessionToken()}<br/><br/>Logging out in 3 seconds...`;
+            target.innerHTML = `Success:<br/>${result.getSessionToken()}<br/><br/>`;
             setTimeout(async () => {
+              document.getElementById("loginButton").innerHTML = 'Show Filter';
+
               await forgerock.SessionManager.logout();
               window.location.assign(`${url.origin}${url.pathname}`);
             }, 3000);
