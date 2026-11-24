@@ -61,6 +61,38 @@
                     {{renderMoney .total_paid}}
                 </div>
             </div>
+            {{ if $.identity.AuthEnabled }}
+            <div class="id-order-rewards" id="order-rewards" data-order="{{ .order.OrderId }}" hidden></div>
+            <script>
+                // What this order earned is the BFF's to say: it knows the shopper, the page does not.
+                (function () {
+                    var box = document.getElementById('order-rewards');
+                    fetch('/bff/api/order/' + encodeURIComponent(box.dataset.order), { credentials: 'same-origin' })
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (d) {
+                            if (!d) { return; }
+                            var p = document.createElement('div');
+                            if (d.signed_in) {
+                                p.textContent = 'You earned ' + d.points_earned + ' points on this order. Your balance is ' +
+                                    d.balance + ' points' + (d.tier ? ' (' + d.tier + ').' : '.') +
+                                    (d.card_saved ? ' Your card was saved for next time.' : '');
+                                box.appendChild(p);
+                            } else {
+                                p.textContent = 'This was a one-time purchase: nothing about you was saved. Create an account now ' +
+                                    'and keep the ' + d.claimable_points + ' points this order earned, plus a welcome bonus.';
+                                var a = document.createElement('a');
+                                a.className = 'cymbal-button-secondary';
+                                a.href = '/auth/register?return_to=/account';
+                                a.textContent = 'Create an account';
+                                box.appendChild(p);
+                                box.appendChild(a);
+                            }
+                            box.hidden = false;
+                        })
+                        .catch(function () {});
+                })();
+            </script>
+            {{ end }}
             <div class="row">
                 <div class="col-12 text-center">
                     <a class="cymbal-button-primary" href="{{ $.baseUrl }}/" role="button">

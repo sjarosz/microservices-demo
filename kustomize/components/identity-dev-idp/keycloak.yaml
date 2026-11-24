@@ -1,0 +1,140 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-dev-idp
+  labels:
+    app: identity-dev-idp
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: identity-dev-idp
+  template:
+    metadata:
+      labels:
+        app: identity-dev-idp
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: keycloak
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+        image: quay.io/keycloak/keycloak:26.4
+        args: ["start-dev", "--import-realm"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: KC_HOSTNAME
+          valueFrom:
+            configMapKeyRef:
+              name: identity-config
+              key: IDP_URL
+        - name: KC_PROXY_HEADERS
+          value: xforwarded
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_BOOTSTRAP_ADMIN_USERNAME
+          value: admin
+        - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: IDP_ADMIN_PASSWORD
+        # Substituted into realm.json at import.
+        - name: BOUTIQUE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: identity-config
+              key: PUBLIC_URL
+        - name: BFF_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: OIDC_CLIENT_SECRET
+        - name: DEMO_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: DEMO_USER_PASSWORD
+        startupProbe:
+          httpGet:
+            path: /health/started
+            port: 9000
+          periodSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 9000
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /opt/keycloak/data/import
+          name: realm
+          readOnly: true
+        - mountPath: /opt/keycloak/data/h2
+          name: data
+        resources:
+          requests:
+            cpu: 200m
+            memory: 768Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+      volumes:
+      - name: realm
+        configMap:
+          name: identity-dev-idp-realm
+      - name: data
+        persistentVolumeClaim:
+          claimName: identity-dev-idp
+---
+# Registered demo accounts survive restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: identity-dev-idp
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-dev-idp
+  labels:
+    app: identity-dev-idp
+spec:
+  type: ClusterIP
+  selector:
+    app: identity-dev-idp
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080

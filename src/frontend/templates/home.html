@@ -37,6 +37,25 @@
 
       <div class="col-12 col-lg-12 px-10-percent">
 
+        {{ range $.strips }}
+        <div class="row hot-products-row px-xl-6 id-strip">
+          <div class="col-12">
+            <h3>{{ .Title }}</h3>
+          </div>
+          {{ range .Products }}
+          <div class="col-md-4 hot-product-card">
+            <a href="{{ $.baseUrl }}/product/{{ .Id }}">
+              <img loading="lazy" src="{{ $.baseUrl }}{{ .Picture }}">
+              <div class="hot-product-card-img-overlay"></div>
+            </a>
+            <div>
+              <div class="hot-product-card-name">{{ .Name }}</div>
+            </div>
+          </div>
+          {{ end }}
+        </div>
+        {{ end }}
+
         <div class="row hot-products-row px-xl-6">
 
           <div class="col-12">

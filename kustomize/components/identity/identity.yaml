@@ -1,0 +1,297 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: identity-config
+data:
+  # How browsers reach the shop (the BFF). Sign-in redirects and the session cookie follow from it.
+  PUBLIC_URL: "http://localhost:8080"
+  # Any OpenID Connect provider: the BFF reads the rest from <issuer>/.well-known/openid-configuration.
+  # Empty = sign-in off, the shop behaves like the stock demo.
+  OIDC_ISSUER: ""
+  OIDC_CLIENT_ID: "online-boutique-bff"
+  OIDC_SCOPES: "openid profile email"
+  # Authorization parameters that open the provider's sign-up page ("Initiating User Registration via OpenID Connect").
+  OIDC_REGISTER_PARAMS: "prompt=create"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff
+  labels:
+    app: bff
+spec:
+  selector:
+    matchLabels:
+      app: bff
+  template:
+    metadata:
+      labels:
+        app: bff
+    spec:
+      serviceAccountName: bff
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: ghcr.io/sjarosz/microservices-demo/bff:identity
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          initialDelaySeconds: 2
+          httpGet:
+            path: /bff/healthz
+            port: 8080
+        livenessProbe:
+          initialDelaySeconds: 5
+          httpGet:
+            path: /bff/healthz
+            port: 8080
+        envFrom:
+        - configMapRef:
+            name: identity-config
+        env:
+        - name: PORT
+          value: "8080"
+        - name: FRONTEND_ADDR
+          value: "http://frontend:80"
+        - name: CUSTOMER_SERVICE_ADDR
+          value: "http://customerservice:8080"
+        - name: REDIS_ADDR
+          value: "identity-redis:6379"
+        - name: BFF_CONTEXT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: BFF_CONTEXT_KEY
+        - name: INTERNAL_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: INTERNAL_API_TOKEN
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: OIDC_CLIENT_SECRET
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bff
+  labels:
+    app: bff
+spec:
+  type: ClusterIP
+  selector:
+    app: bff
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bff
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customerservice
+  labels:
+    app: customerservice
+spec:
+  selector:
+    matchLabels:
+      app: customerservice
+  template:
+    metadata:
+      labels:
+        app: customerservice
+    spec:
+      serviceAccountName: customerservice
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: ghcr.io/sjarosz/microservices-demo/customerservice:identity
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          initialDelaySeconds: 2
+          httpGet:
+            path: /healthz
+            port: 8080
+        livenessProbe:
+          initialDelaySeconds: 5
+          httpGet:
+            path: /healthz
+            port: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: REDIS_ADDR
+          value: "identity-redis:6379"
+        - name: INTERNAL_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: INTERNAL_API_TOKEN
+        - name: VAULT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: VAULT_KEY
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customerservice
+  labels:
+    app: customerservice
+spec:
+  type: ClusterIP
+  selector:
+    app: customerservice
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: customerservice
+---
+# Sessions (bff:session:*) and customer records (customer:*). Kept apart from the cart's Redis so the stock
+# services stay untouched.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-redis
+  labels:
+    app: identity-redis
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: identity-redis
+  template:
+    metadata:
+      labels:
+        app: identity-redis
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: redis
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: redis:alpine
+        args: ["--appendonly", "yes"]
+        ports:
+        - containerPort: 6379
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 6379
+        livenessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 6379
+        volumeMounts:
+        - mountPath: /data
+          name: data
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 125m
+            memory: 256Mi
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: identity-redis
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: identity-redis
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-redis
+  labels:
+    app: identity-redis
+spec:
+  type: ClusterIP
+  selector:
+    app: identity-redis
+  ports:
+  - name: tcp-redis
+    port: 6379
+    targetPort: 6379

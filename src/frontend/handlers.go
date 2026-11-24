@@ -50,6 +50,7 @@ var (
 				Funcs(template.FuncMap{
 			"renderMoney":        renderMoney,
 			"renderCurrencyLogo": renderCurrencyLogo,
+			"progress":           tierProgress,
 		}).ParseGlob("templates/*.html"))
 	plat platformDetails
 )
@@ -114,6 +115,7 @@ func (fe *frontendServer) homeHandler(w http.ResponseWriter, r *http.Request) {
 		"cart_size":     cartSize(cart),
 		"banner_color":  os.Getenv("BANNER_COLOR"), // illustrates canary deployments
 		"ad":            fe.chooseAd(r.Context(), []string{}, log),
+		"strips":        fe.personalStrips(r),
 	})); err != nil {
 		log.Error(err)
 	}
@@ -389,6 +391,8 @@ func (fe *frontendServer) placeOrderHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	fe.reportOrder(w, r, order.GetOrder(), &totalPaid)
+
 	if err := templates.ExecuteTemplate(w, "order", injectCommonTemplateData(r, map[string]interface{}{
 		"show_currency":   false,
 		"currencies":      currencies,
@@ -561,6 +565,8 @@ func injectCommonTemplateData(r *http.Request, payload map[string]interface{}) m
 		"frontendMessage":   frontendMessage,
 		"currentYear":       time.Now().Year(),
 		"baseUrl":           baseUrl,
+		"identity":          identity(r),
+		"request_path":      r.URL.Path,
 	}
 
 	for k, v := range payload {

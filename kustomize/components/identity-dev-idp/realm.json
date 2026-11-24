@@ -1,0 +1,43 @@
+{
+  "realm": "boutique",
+  "enabled": true,
+  "displayName": "Online Boutique",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "resetPasswordAllowed": false,
+  "sslRequired": "external",
+  "clients": [
+    {
+      "clientId": "online-boutique-bff",
+      "name": "Online Boutique",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${BFF_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${BOUTIQUE_URL}/auth/callback"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${BOUTIQUE_URL}/"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "demo@example.com",
+      "email": "demo@example.com",
+      "firstName": "Dana",
+      "lastName": "Demo",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "${DEMO_USER_PASSWORD}", "temporary": false }]
+    }
+  ]
+}

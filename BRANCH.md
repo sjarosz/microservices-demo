@@ -4,8 +4,9 @@ Starter notes for this branch. Update them as the work takes shape.
 
 ## What this branch is for
 
-Identity work on Online Boutique: adding sign-in for shoppers and identity-aware calls between the services,
-on top of the stock demo. Nothing is changed yet; this file is the only difference from the base.
+A meaningful identity experience for Online Boutique, kept out of the core demo by a Backend for Frontend:
+anonymous until checkout, then guest purchase, sign-in or sign-up over OpenID Connect, saved payment details,
+personalization and membership rewards. See [docs/identity.md](docs/identity.md).
 
 ## Where it comes from
 
@@ -25,8 +26,11 @@ on top of the stock demo. Nothing is changed yet; this file is the only differen
 ## Changes so far
 
 - 2026-11-23: branch created, this file added.
+- 2026-11-23: identity behind a BFF. New `src/bff` and `src/customerservice`; frontend reads a signed context
+  header (`identity.go`, an account page, template and CSS additions; `main.go` and `handlers.go` gain a few lines);
+  kustomize components `identity` and `identity-dev-idp`; `docs/identity.md`. No other stock service changed.
 
 ## Open questions
 
-- Which identity provider and which flows (shopper sign-in, service-to-service, agent access)?
-- Which services change first (most likely `frontend` and `checkoutservice`)?
+- Which real identity provider replaces the throwaway Keycloak?
+- Should points be redeemable (needs checkoutservice changes)?

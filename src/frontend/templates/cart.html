@@ -99,7 +99,43 @@
 
                 <div class="col-lg-5 offset-lg-1 col-xl-4">
 
+                    {{ if and (not $.identity.SignedIn) (not $.identity.Guest) }}
+                    <!-- Shoppers stay anonymous until here: checkout is where they choose who to be. -->
+                    <div class="row">
+                        <div class="col">
+                            <h3>How would you like to check out?</h3>
+                        </div>
+                    </div>
+                    <div class="id-choice">
+                        <h4>Sign in</h4>
+                        <p>Use your saved address and cards, and earn points on this order.</p>
+                        <a class="cymbal-button-primary" href="/auth/login?return_to=/cart" role="button">Sign in</a>
+                    </div>
+                    <div class="id-choice">
+                        <h4>Create an account</h4>
+                        <p>Join Boutique Rewards: 100 bonus points now, points on every order, and a faster checkout next time.</p>
+                        <a class="cymbal-button-secondary" href="/auth/register?return_to=/cart" role="button">Create an account</a>
+                    </div>
+                    <div class="id-choice">
+                        <h4>Check out as a guest</h4>
+                        <p>A one-time purchase. Your details are used for this order only and nothing is saved.</p>
+                        <a class="cymbal-button-secondary" href="{{ $.baseUrl }}/cart?checkout=guest" role="button">Continue as guest</a>
+                    </div>
+                    {{ else }}
+
                     <form class="cart-checkout-form" action="{{ $.baseUrl }}/cart/checkout" method="POST">
+
+                        {{ if $.identity.SignedIn }}
+                        <div class="id-note">
+                            Signed in as {{ $.identity.User.Email }}.
+                            {{ if $.identity.Rewards.Tier }}{{ $.identity.Rewards.Tier }} members earn {{ $.identity.Rewards.EarnRate }} pt per $1 on this order.{{ end }}
+                        </div>
+                        {{ else if $.identity.AuthEnabled }}
+                        <div class="id-note">
+                            One-time purchase: your details are used for this order only.
+                            <a href="/auth/login?return_to=/cart">Sign in instead</a>
+                        </div>
+                        {{ end }}
 
                         <div class="row">
                             <div class="col">
@@ -111,7 +147,7 @@
                             <div class="col cymbal-form-field">
                                 <label for="email">E-mail Address</label>
                                 <input type="email" id="email"
-                                    name="email" value="someone@example.com" required>
+                                    name="email" value="{{ if $.identity.SignedIn }}{{ $.identity.User.Email }}{{ else }}someone@example.com{{ end }}" required>
                             </div>
                         </div>
 
@@ -119,7 +155,7 @@
                             <div class="col cymbal-form-field">
                                 <label for="street_address">Street Address</label>
                                 <input type="text" name="street_address"
-                                    id="street_address" value="1600 Amphitheatre Parkway" required>
+                                    id="street_address" value="{{ with $.identity.Address }}{{ .Street }}{{ else }}1600 Amphitheatre Parkway{{ end }}" required>
                             </div>
                         </div>
 
@@ -127,7 +163,7 @@
                             <div class="col cymbal-form-field">
                                 <label for="zip_code">Zip Code</label>
                                 <input type="text"
-                                    name="zip_code" id="zip_code" value="94043" required pattern="\d{4,5}">
+                                    name="zip_code" id="zip_code" value="{{ with $.identity.Address }}{{ .Zip }}{{ else }}94043{{ end }}" required pattern="\d{4,5}">
                             </div>
                         </div>
 
@@ -135,7 +171,7 @@
                             <div class="col cymbal-form-field">
                                 <label for="city">City</label>
                                 <input type="text" name="city" id="city"
-                                    value="Mountain View" required>
+                                    value="{{ with $.identity.Address }}{{ .City }}{{ else }}Mountain View{{ end }}" required>
                                 </div>
                             </div>
 
@@ -143,21 +179,43 @@
                             <div class="col-md-5 cymbal-form-field">
                                 <label for="state">State</label>
                                 <input type="text" name="state" id="state"
-                                    value="CA" required>
+                                    value="{{ with $.identity.Address }}{{ .State }}{{ else }}CA{{ end }}" required>
                             </div>
                             <div class="col-md-7 cymbal-form-field">
                                 <label for="country">Country</label>
                                 <input type="text" id="country"
                                     placeholder="Country Name"
-                                    name="country" value="United States" required>
+                                    name="country" value="{{ with $.identity.Address }}{{ .Country }}{{ else }}United States{{ end }}" required>
                             </div>
                         </div>
+
+                        {{ if $.identity.SignedIn }}
+                        <div class="id-check">
+                            <label><input type="checkbox" name="remember_address">Save this address to my account</label>
+                        </div>
+                        {{ end }}
 
                         <div class="row">
                             <div class="col">
                                 <h3 class="payment-method-heading">Payment Method</h3>
                             </div>
                         </div>
+
+                        {{ if $.identity.PaymentMethods }}
+                        {{ range $i, $card := $.identity.PaymentMethods }}
+                        <label class="id-saved-card">
+                            <input type="radio" name="saved_payment_id" value="{{ $card.ID }}" {{ if eq $i 0 }}checked{{ end }}>
+                            {{ $card.Brand }} ending in {{ $card.Last4 }} &middot; expires {{ $card.ExpMonth }}/{{ $card.ExpYear }}
+                        </label>
+                        {{ end }}
+                        <label class="id-saved-card">
+                            <input type="radio" name="saved_payment_id" value="new">
+                            Use a different card
+                        </label>
+                        {{ end }}
+
+                        <!-- With a saved card selected these fields are disabled, so they are neither required nor sent. -->
+                        <fieldset id="new-card-fields" {{ if $.identity.PaymentMethods }}disabled hidden{{ end }}>
 
                         <div class="form-row">
                             <div class="col cymbal-form-field">
@@ -207,6 +265,13 @@
                             </div>
                         </div>
 
+                        {{ if $.identity.SignedIn }}
+                        <div class="id-check">
+                            <label><input type="checkbox" name="remember_payment">Remember this card for next time</label>
+                        </div>
+                        {{ end }}
+                        </fieldset>
+
                         <div class="form-row justify-content-center">
                             <div class="col text-center">
                                 <button class="cymbal-button-primary" type="submit">
@@ -216,6 +281,21 @@
                         </div>
 
                     </form>
+                    {{ if $.identity.PaymentMethods }}
+                    <script>
+                        (function () {
+                            var fields = document.getElementById('new-card-fields');
+                            document.querySelectorAll('input[name="saved_payment_id"]').forEach(function (radio) {
+                                radio.addEventListener('change', function () {
+                                    var useNew = radio.value === 'new' && radio.checked;
+                                    fields.disabled = !useNew;
+                                    fields.hidden = !useNew;
+                                });
+                            });
+                        })();
+                    </script>
+                    {{ end }}
+                    {{ end }}
 
                 </div>
 

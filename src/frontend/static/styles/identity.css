@@ -1,0 +1,122 @@
+/**
+ * Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* Sign-in, account and rewards: everything the identity (BFF) work adds to the shop's pages. */
+
+header .controls .id-account {
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+  margin-left: 25px;
+  line-height: 1.25;
+  text-align: right;
+  color: #1E2021;
+}
+
+header .controls .id-account:hover { text-decoration: none; color: #CE0631; }
+header .controls .id-account .id-name { font-size: 14px; font-weight: bold; color: #1E2021; }
+header .id-account .id-points { font-size: 12px; color: #605f64; }
+
+header .controls .id-link, header .controls .id-logout button {
+  display: flex;
+  align-items: center;
+  margin-left: 25px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 14px;
+  line-height: 1;
+  color: #1E2021;
+  cursor: pointer;
+}
+
+header .controls .id-link:hover, header .controls .id-logout button:hover { color: #CE0631; text-decoration: underline; }
+header .controls .id-logout { display: flex; align-items: center; margin: 0; }
+
+.id-notice {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #1E2021;
+  background-color: #FFF4D6;
+  border-bottom: 1px solid #F2D58A;
+}
+
+.id-note {
+  margin: 16px 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  background-color: #F2F2F2;
+}
+
+.id-choice {
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid #D9D9D9;
+  border-radius: 8px;
+  background-color: white;
+}
+
+.id-choice h4 { margin: 0 0 4px 0; font-size: 18px; }
+.id-choice p { margin: 0 0 12px 0; font-size: 14px; color: #5C6063; }
+
+.id-check { margin-top: 16px; font-size: 14px; }
+.id-check input { margin-right: 8px; }
+
+.id-saved-card {
+  display: block;
+  margin: 12px 0 0 0;
+  padding: 12px 16px;
+  border: 1px solid #D9D9D9;
+  border-radius: 8px;
+  background-color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.id-saved-card input { margin-right: 10px; }
+
+.id-order-rewards {
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  background-color: #FFF4D6;
+}
+
+.id-order-rewards a { display: inline-block; margin-top: 12px; }
+
+.id-strip { margin-bottom: 8px; }
+
+main.id-account-page { padding: 56px 0 120px 0; background-color: #F9F9F9; }
+.id-account-page h3 { font-size: 36px; font-weight: normal; }
+.id-account-page .id-card {
+  margin-top: 24px;
+  padding: 24px;
+  border-radius: 8px;
+  background-color: white;
+}
+.id-account-page .id-card h4 { margin-bottom: 16px; font-size: 20px; }
+.id-account-page table { width: 100%; font-size: 14px; }
+.id-account-page td, .id-account-page th { padding: 8px 0; border-bottom: 1px solid #EEE; font-weight: normal; }
+.id-account-page th { color: #5C6063; font-size: 12px; }
+.id-account-page .id-right { text-align: right; }
+.id-account-page .id-muted { font-size: 14px; color: #5C6063; }
+.id-account-page .id-big { font-size: 32px; line-height: 1.1; }
+.id-progress { height: 8px; margin: 12px 0 8px 0; border-radius: 4px; background-color: #EEE; overflow: hidden; }
+.id-progress div { height: 100%; background-color: #CE0631; }
+.id-account-page select { width: 90px; height: 36px; margin-left: 8px; padding: 0 8px; }

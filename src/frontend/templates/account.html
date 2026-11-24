@@ -1,0 +1,131 @@
+<!--
+ Copyright 2026 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+{{ define "account" }}
+    {{ template "header" . }}
+
+    {{ with $.identity }}
+    <main role="main" class="id-account-page">
+        <section class="container">
+            <h3>Hi, {{ .User.GivenName }}</h3>
+            <p class="id-muted">{{ .User.Name }} &middot; {{ .User.Email }}</p>
+
+            <div class="row">
+                <div class="col-lg-6">
+
+                    <div class="id-card">
+                        <h4>Boutique Rewards</h4>
+                        {{ if .Rewards.Tier }}
+                        <div class="id-big">{{ .Rewards.Points }} points</div>
+                        <p class="id-muted">{{ .Rewards.Tier }} member &middot; earn rate {{ .Rewards.EarnRate }} pt per $1</p>
+                        {{ if .Rewards.NextTier }}
+                        <div class="id-progress"><div style="width: {{ progress .Rewards.LifetimePoints .Rewards.PointsToNext }}%"></div></div>
+                        <p class="id-muted">{{ .Rewards.PointsToNext }} more points to reach {{ .Rewards.NextTier }}</p>
+                        {{ end }}
+                        {{ if .Ledger }}
+                        <table>
+                            <tr><th>Date</th><th>Activity</th><th class="id-right">Points</th></tr>
+                            {{ range .Ledger }}
+                            <tr><td>{{ .At.Format "Jan 2, 2006" }}</td><td>{{ .Description }}</td><td class="id-right">+{{ .Points }}</td></tr>
+                            {{ end }}
+                        </table>
+                        {{ end }}
+                        {{ else }}
+                        <p class="id-muted">Your rewards are unavailable right now. Please check back soon.</p>
+                        {{ end }}
+                    </div>
+
+                    <div class="id-card">
+                        <h4>Orders</h4>
+                        {{ if .Orders }}
+                        <table>
+                            <tr><th>Date</th><th>Order</th><th class="id-right">Total (USD)</th><th class="id-right">Points</th></tr>
+                            {{ range .Orders }}
+                            <tr><td>{{ .At.Format "Jan 2, 2006" }}</td><td>{{ printf "%.8s" .ID }}</td><td class="id-right">${{ printf "%.2f" .TotalUSD }}</td><td class="id-right">+{{ .Points }}</td></tr>
+                            {{ end }}
+                        </table>
+                        {{ else }}
+                        <p class="id-muted">Orders you place while signed in appear here.</p>
+                        {{ end }}
+                    </div>
+
+                </div>
+                <div class="col-lg-6">
+
+                    <div class="id-card">
+                        <h4>Saved cards</h4>
+                        {{ if .PaymentMethods }}
+                        <table>
+                            {{ range .PaymentMethods }}
+                            <tr>
+                                <td>{{ .Brand }} ending in {{ .Last4 }}</td>
+                                <td>Expires {{ .ExpMonth }}/{{ .ExpYear }}</td>
+                                <td class="id-right">
+                                    <form method="POST" action="/account/payment-methods/{{ .ID }}/delete">
+                                        <button class="cymbal-button-secondary" type="submit">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {{ end }}
+                        </table>
+                        {{ else }}
+                        <p class="id-muted">No saved cards. Tick &ldquo;Remember this card&rdquo; at checkout to save one.</p>
+                        {{ end }}
+                    </div>
+
+                    <div class="id-card">
+                        <h4>Shipping address</h4>
+                        {{ with .Address }}
+                        <p class="id-muted">{{ .Street }}<br>{{ .City }}, {{ .State }} {{ .Zip }}<br>{{ .Country }}</p>
+                        {{ else }}
+                        <p class="id-muted">No saved address. Tick &ldquo;Save this address&rdquo; at checkout to save one.</p>
+                        {{ end }}
+                    </div>
+
+                    <div class="id-card">
+                        <h4>Preferences</h4>
+                        <form method="POST" action="/account/preferences">
+                            <label class="id-muted">Preferred currency
+                                <select name="currency">
+                                    {{ range $.currencies }}
+                                    <option value="{{ . }}" {{ if eq . $.identity.Preferences.Currency }}selected="selected"{{ else if and (not $.identity.Preferences.Currency) (eq . $.user_currency) }}selected="selected"{{ end }}>{{ . }}</option>
+                                    {{ end }}
+                                </select>
+                            </label>
+                            <div class="id-check">
+                                <label><input type="checkbox" name="marketing" {{ if .Preferences.Marketing }}checked{{ end }}>Send me member offers by e-mail</label>
+                            </div>
+                            <button class="cymbal-button-primary mt-3" type="submit">Save preferences</button>
+                        </form>
+                    </div>
+
+                    <div class="id-card">
+                        <h4>Your data</h4>
+                        <p class="id-muted">Your name, e-mail and password are managed by the sign-in provider. The shop keeps only
+                            what is on this page. Deleting it removes your points, cards, address and order history, and signs you out.</p>
+                        <form method="POST" action="/account/delete" onsubmit="return confirm('Delete everything the shop holds about you?');">
+                            <button class="cymbal-button-secondary" type="submit">Delete my shop data</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+    {{ end }}
+
+    {{ template "footer" . }}
+{{ end }}

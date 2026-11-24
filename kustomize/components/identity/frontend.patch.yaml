@@ -1,0 +1,17 @@
+# The frontend built from this branch, trusting the context the BFF signs.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  template:
+    spec:
+      containers:
+      - name: server
+        image: ghcr.io/sjarosz/microservices-demo/frontend:identity
+        env:
+        - name: BFF_CONTEXT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: BFF_CONTEXT_KEY
