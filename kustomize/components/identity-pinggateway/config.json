@@ -1,0 +1,63 @@
+{
+  "comment": "PingGateway as the OIDC sidecar of the BFF. See kustomization.yaml in this directory.",
+  "session": "ShopSession",
+  "handler": {
+    "type": "Chain",
+    "config": {
+      "filters": [
+        {
+          "comment": "TLS ends at the ingress: rebuild the browser's scheme so redirect URIs come out as https.",
+          "type": "ForwardedRequestFilter",
+          "config": {
+            "scheme": "${empty request.headers['X-Forwarded-Proto'] ? 'http' : request.headers['X-Forwarded-Proto'][0]}"
+          }
+        }
+      ],
+      "handler": "Routes"
+    }
+  },
+  "heap": [
+    {
+      "name": "Routes",
+      "type": "Router",
+      "config": { "directory": "${openig.configDirectory}/routes", "scanInterval": "disabled" }
+    },
+    {
+      "comment": "Stateful: tokens stay in this pod's memory, the browser gets an opaque id.",
+      "name": "ShopSession",
+      "type": "InMemorySessionManager",
+      "config": {
+        "timeout": "8 hours",
+        "cookie": {
+          "name": "&{session.cookie.name|__Host-gateway}",
+          "secure": { "$bool": "&{session.cookie.secure|true}" },
+          "httpOnly": true,
+          "sameSite": "LAX",
+          "path": "/"
+        }
+      }
+    },
+    {
+      "comment": "OIDC_CLIENT_SECRET is read as is; GATEWAY_IDENTITY_KEY is base64 of the HMAC key shared with the BFF.",
+      "name": "EnvSecrets",
+      "type": "SystemAndEnvSecretStore",
+      "config": {
+        "format": "PLAIN",
+        "mappings": [
+          {
+            "secretId": "gateway.identity.key",
+            "format": {
+              "type": "SecretKeyPropertyFormat",
+              "config": { "format": "BASE64", "algorithm": "HmacSHA256" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bff",
+      "type": "ReverseProxyHandler",
+      "baseURI": "&{bff.addr|http://127.0.0.1:8081}"
+    }
+  ]
+}

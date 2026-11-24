@@ -29,6 +29,8 @@ personalization and membership rewards. See [docs/identity.md](docs/identity.md)
 - 2026-11-23: identity behind a BFF. New `src/bff` and `src/customerservice`; frontend reads a signed context
   header (`identity.go`, an account page, template and CSS additions; `main.go` and `handlers.go` gain a few lines);
   kustomize components `identity` and `identity-dev-idp`; `docs/identity.md`. No other stock service changed.
+- 2026-11-24: optional component `identity-pinggateway`: a PingGateway sidecar in the BFF pod is the OIDC client;
+  the BFF gains a gateway mode (`src/bff/gateway.go`) and deletes cookies with a past `Expires` as well.
 
 ## Open questions
 

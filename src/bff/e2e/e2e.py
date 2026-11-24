@@ -25,6 +25,7 @@ CARD = {"credit_card_number": "4432801561520454", "credit_card_expiration_month"
         "credit_card_expiration_year": str(time.gmtime().tm_year + 2), "credit_card_cvv": "672"}
 ADDRESS = {"street_address": "1 Identity Way", "zip_code": "10001", "city": "New York", "state": "NY",
            "country": "United States"}
+GATEWAY = {"gateway", "__Host-gateway"}     # the PingGateway sidecar's session cookie, when it is deployed
 failed = 0
 
 
@@ -84,7 +85,8 @@ def main():
     s, _, page, _ = b.request("/")
     check("home is served to an anonymous shopper", s == 200 and "Hot Products" in page)
     check("anonymous: sign-in is offered, nobody is greeted", "Sign in" in page and "id-account" not in page)
-    check("anonymous: no BFF session before it is needed", set(b.cookies()) == {"shop_session-id"}, str(b.cookies()))
+    # With the PingGateway sidecar the browser also holds the gateway's opaque session cookie, from the first request.
+    check("anonymous: no BFF session before it is needed", set(b.cookies()) - GATEWAY == {"shop_session-id"}, str(b.cookies()))
     forged = "eyJzaWduZWRfaW4iOnRydWUsImF1dGhfZW5hYmxlZCI6dHJ1ZSwidXNlciI6eyJnaXZlbl9uYW1lIjoiTWFsbG9yeSJ9fQ.AAAA"
     s, _, page, _ = b.request("/", headers={"X-Bff-Context": forged})
     check("a context header sent by the browser is ignored", "Mallory" not in page)
@@ -124,7 +126,7 @@ def main():
     check("the notice is shown once", "100 bonus points" not in b.request("/account")[2])
     names = set(b.cookies())
     check("browser holds only the session cookie and the shop's own",
-          names and names <= {"bff", "__Host-bff", "shop_session-id", "shop_currency"}, str(names))
+          names and names <= {"bff", "__Host-bff", "shop_session-id", "shop_currency"} | GATEWAY, str(names))
     check("no token reaches the page", "eyJ" not in page)
 
     # --- member checkout: remember card and address ------------------------------------------------------------
@@ -166,7 +168,8 @@ def main():
     check("sign-out from another site is refused", s == 403, str(s))
     s, url, page, _ = b.request("/auth/logout", {})
     check("sign-out ends at the shop, anonymous, with an empty cart",
-          url.rstrip("/") == BASE and "id-account" not in page and "shop_currency" not in b.cookies(), url[:80])
+          url.rstrip("/") == BASE and "id-account" not in page and "shop_currency" not in b.cookies(),
+          "%s greeted=%s cookies=%s" % (url[:80], "id-account" in page, sorted(b.cookies())))
     s, url, page, _ = b.request("/account")
     check("the account page asks an anonymous shopper to sign in", not url.startswith(BASE), url[:80])
     s, url, page, _ = b.request(form_action(page), {"username": EMAIL, "password": PASSWORD})

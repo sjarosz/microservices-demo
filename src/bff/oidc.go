@@ -58,6 +58,10 @@ func localPath(v string) string {
 // login starts the authorization code flow with PKCE. /auth/register is the same flow with the parameters that ask
 // the provider for its sign-up page (OIDC_REGISTER_PARAMS, by default the standard prompt=create).
 func (b *BFF) login(w http.ResponseWriter, r *http.Request) {
+	if b.cfg.gatewayKey != nil {
+		b.gatewayLogin(w, r)
+		return
+	}
 	if b.oidc == nil {
 		http.Error(w, "sign-in is not configured", http.StatusNotFound)
 		return
@@ -209,10 +213,14 @@ func (b *BFF) logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cross-site request refused", http.StatusForbidden)
 		return
 	}
+	if b.cfg.gatewayKey != nil {
+		b.gatewayLogout(w, r)
+		return
+	}
 	s := b.session(r)
 	b.end(w.Header(), s)
 	for _, name := range []string{"shop_session-id", "shop_currency"} {
-		http.SetCookie(w, &http.Cookie{Name: name, Path: "/", MaxAge: -1})
+		http.SetCookie(w, expiring(&http.Cookie{Name: name, Path: "/", MaxAge: -1}))
 	}
 	home := b.cfg.publicURL.String() + "/"
 	if b.oidc != nil && s.signedIn() && b.oidc.ready() == nil && b.oidc.endSession != "" {

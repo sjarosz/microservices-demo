@@ -1,0 +1,112 @@
+{
+  "name": "20-shop",
+  "comment": "Everything else. Nobody has to sign in (requireLogin false); when someone has, the BFF is told who in a signed header.",
+  "handler": {
+    "type": "Chain",
+    "config": {
+      "filters": [
+        {
+          "comment": "Only the gateway may say who is shopping.",
+          "type": "HeaderFilter",
+          "config": { "messageType": "REQUEST", "remove": [ "X-Gateway-Identity" ] }
+        },
+        {
+          "comment": "The filter's prompt option knows none, login, consent, select_account; sign-up needs prompt=create.",
+          "type": "ScriptableFilter",
+          "config": {
+            "type": "application/x-groovy",
+            "file": "SignUpParams.groovy",
+            "args": { "signUpParams": "&{oidc.register.params|prompt=create}" }
+          }
+        },
+        {
+          "type": "AuthorizationCodeOAuth2ClientFilter",
+          "config": {
+            "clientEndpoint": "/auth",
+            "requireLogin": false,
+            "requireHttps": false,
+            "cacheExpiration": "10 minutes",
+            "openIdEndSessionOnLogout": true,
+            "revokeOauth2TokenOnLogout": true,
+            "defaultLoginGoto": "/",
+            "defaultLogoutGoto": "/",
+            "failureHandler": {
+              "type": "StaticResponseHandler",
+              "config": { "status": 302, "headers": { "Location": [ "/auth/failed" ] } }
+            },
+            "registrations": [
+              {
+                "name": "shop",
+                "type": "ClientRegistration",
+                "config": {
+                  "clientId": "&{oidc.client.id}",
+                  "pkceMethod": "S256",
+                  "scopes": [ "openid", "profile", "email" ],
+                  "skipSignatureVerification": false,
+                  "issuer": {
+                    "name": "provider",
+                    "type": "Issuer",
+                    "config": { "wellKnownEndpoint": "&{oidc.issuer}/.well-known/openid-configuration" }
+                  },
+                  "authenticatedRegistrationHandler": {
+                    "type": "Chain",
+                    "config": {
+                      "filters": [
+                        {
+                          "type": "ClientSecretBasicAuthenticationFilter",
+                          "config": {
+                            "clientId": "&{oidc.client.id}",
+                            "clientSecretId": "oidc.client.secret",
+                            "secretsProvider": "EnvSecrets"
+                          }
+                        }
+                      ],
+                      "handler": "ForgeRockClientHandler"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "comment": "Signed in: the provider's user info, signed for the BFF. Not signed in: no header.",
+          "type": "ConditionalFilter",
+          "config": {
+            "condition": "${not empty contexts.oauth2Info.userInfo['sub']}",
+            "delegate": {
+              "type": "ChainOfFilters",
+              "config": {
+                "filters": [
+                  {
+                    "type": "JwtBuilderFilter",
+                    "config": {
+                      "template": {
+                        "sub": "${contexts.oauth2Info.userInfo['sub']}",
+                        "name": "${contexts.oauth2Info.userInfo['name']}",
+                        "given_name": "${contexts.oauth2Info.userInfo['given_name']}",
+                        "family_name": "${contexts.oauth2Info.userInfo['family_name']}",
+                        "preferred_username": "${contexts.oauth2Info.userInfo['preferred_username']}",
+                        "email": "${contexts.oauth2Info.userInfo['email']}"
+                      },
+                      "secretsProvider": "EnvSecrets",
+                      "signature": { "secretId": "gateway.identity.key", "algorithm": "HS256" }
+                    }
+                  },
+                  {
+                    "type": "HeaderFilter",
+                    "config": {
+                      "messageType": "REQUEST",
+                      "add": { "X-Gateway-Identity": [ "${contexts.jwtBuilder.value}" ] }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "handler": "Bff"
+    }
+  }
+}

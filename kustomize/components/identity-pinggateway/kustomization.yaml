@@ -1,0 +1,37 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# PingGateway as the OIDC sidecar of the BFF. Add after the identity component.
+#
+# The sidecar takes the pod's port and does what a gateway is best at: the authorization code flow with PKCE, the
+# callback, the tokens (kept in its session), refresh, and sign-out at the provider. It tells the BFF who is shopping
+# in one signed header over localhost. The BFF listens on 127.0.0.1 only, holds no client secret and no token, and
+# keeps what is about the shop. Browser-facing paths and the redirect URI (/auth/callback) are the same as without
+# the sidecar, so the provider's client needs no change.
+#
+# The overlay supplies, in Secret identity-secrets, additionally:
+#   - GATEWAY_IDENTITY_KEY: base64 of 32 random bytes (openssl rand -base64 32), shared by sidecar and BFF
+# The image is ForgeRock's public evaluation build of PingGateway; use a licensed image of your own for anything real.
+# Sessions live in the sidecar's memory: keep one bff replica, or add sticky routing.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+configMapGenerator:
+- name: identity-pinggateway
+  files:
+  - config.json
+  - 10-bff-auth.json
+  - 20-shop.json
+  - SignUpParams.groovy
+patches:
+- path: sidecar.patch.yaml

@@ -1,0 +1,17 @@
+{
+  "name": "10-bff-auth",
+  "comment": "The shop's own sign-in links, which the BFF turns into the gateway's: /auth/login?return_to=..., /auth/register, POST /auth/logout and /auth/failed. The gateway's /auth/login?registration=..., GET /auth/logout and /auth/callback fall through to 20-shop.",
+  "condition": "${((request.uri.path == '/auth/login' or request.uri.path == '/auth/register') and empty request.queryParams['registration']) or (request.uri.path == '/auth/logout' and request.method == 'POST') or request.uri.path == '/auth/failed'}",
+  "handler": {
+    "type": "Chain",
+    "config": {
+      "filters": [
+        {
+          "type": "HeaderFilter",
+          "config": { "messageType": "REQUEST", "remove": [ "X-Gateway-Identity" ] }
+        }
+      ],
+      "handler": "Bff"
+    }
+  }
+}

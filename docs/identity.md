@@ -58,6 +58,36 @@ URI `<PUBLIC_URL>/`, set the three `OIDC_*` values, and drop the dev-idp compone
 Images are built from `src/bff`, `src/customerservice` and `src/frontend` (`docker buildx build --platform
 linux/amd64 ...`).
 
+## Variant: PingGateway as the BFF's OIDC sidecar
+
+Add `kustomize/components/identity-pinggateway` after the identity component and the BFF pod gains a PingGateway
+container that takes over what a gateway does best. Nothing changes for the shopper, the frontend or the provider's
+client: the paths and the redirect URI (`/auth/callback`) are the same.
+
+| | BFF alone | With the sidecar |
+|---|---|---|
+| Authorization code flow, PKCE, callback | `src/bff/oidc.go` | `AuthorizationCodeOAuth2ClientFilter` |
+| Tokens and client secret | BFF session in Redis | sidecar's session, in its memory; the BFF has neither |
+| Sign-out at the provider | BFF | sidecar (`openIdEndSessionOnLogout`), tokens revoked |
+| Who is shopping | BFF session | signed JWT (`X-Gateway-Identity`, HS256) from the sidecar on every request |
+| Anonymous session, rewards, saved cards, checkout | BFF | BFF, unchanged |
+
+The BFF listens on `127.0.0.1:8081` only and trusts the header after checking its signature
+(`GATEWAY_IDENTITY_KEY`, shared through `identity-secrets`). When the header names someone its own session does
+not, it runs the same welcome step as after its own callback: new session id, guest order claimed, views moved.
+
+Found while building it (PingGateway 2026.9):
+
+- Sign-up needs a script. The filter's `prompt` accepts `none`, `login`, `consent` and `select_account`, not
+  `create`; `SignUpParams.groovy` appends `OIDC_REGISTER_PARAMS` to the authorization redirect.
+- The gateway drops `Max-Age=0` when it rewrites `Set-Cookie` headers, so a backend's cookie deletion must also
+  carry a past `Expires`. The BFF does that.
+- The browser gets the gateway's session cookie on its first request, before any sign-in. It names an empty session.
+- Sessions are per pod: one `bff` replica, or sticky routing. The component sets `replicas: 1`.
+- `GET /auth/logout` is the gateway's own endpoint and has no cross-site check; another site can sign a shopper out
+  (nothing else). The shop's button still posts to the BFF, which checks the origin first.
+- The image is ForgeRock's public evaluation build; use a licensed image for anything real.
+
 ## Testing
 
 `src/bff/e2e/e2e.py` drives the BFF like a browser through the whole experience (33 checks): anonymous browsing,

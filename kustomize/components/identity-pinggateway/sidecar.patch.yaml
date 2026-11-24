@@ -1,0 +1,119 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: server
+        # Reachable from the sidecar only; the sidecar's probes cover both containers.
+        ports:
+        - containerPort: 8080
+          $patch: delete
+        readinessProbe: null
+        livenessProbe: null
+        env:
+        - name: LISTEN_ADDR
+          value: "127.0.0.1:8081"
+        - name: GATEWAY_IDENTITY_KEY
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: GATEWAY_IDENTITY_KEY
+      - name: gateway
+        image: us-docker.pkg.dev/forgeops-public/images-base/ig:2026.9.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          runAsUser: 11111
+          runAsGroup: 0
+        ports:
+        - containerPort: 8080
+        startupProbe:
+          periodSeconds: 3
+          failureThreshold: 40
+          httpGet:
+            path: /bff/healthz
+            port: 8080
+        readinessProbe:
+          httpGet:
+            path: /bff/healthz
+            port: 8080
+        livenessProbe:
+          periodSeconds: 20
+          httpGet:
+            path: /bff/healthz
+            port: 8080
+        env:
+        - name: BFF_ADDR
+          value: "http://127.0.0.1:8081"
+        - name: OIDC_ISSUER
+          valueFrom:
+            configMapKeyRef:
+              name: identity-config
+              key: OIDC_ISSUER
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: identity-config
+              key: OIDC_CLIENT_ID
+        - name: OIDC_REGISTER_PARAMS
+          valueFrom:
+            configMapKeyRef:
+              name: identity-config
+              key: OIDC_REGISTER_PARAMS
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: OIDC_CLIENT_SECRET
+        - name: GATEWAY_IDENTITY_KEY
+          valueFrom:
+            secretKeyRef:
+              name: identity-secrets
+              key: GATEWAY_IDENTITY_KEY
+        - name: IG_OPTS
+          value: "-XX:MaxRAMPercentage=60"
+        volumeMounts:
+        - name: gateway-config
+          mountPath: /var/gateway/config/config.json
+          subPath: config.json
+        - name: gateway-config
+          mountPath: /var/gateway/config/routes/10-bff-auth.json
+          subPath: 10-bff-auth.json
+        - name: gateway-config
+          mountPath: /var/gateway/config/routes/20-shop.json
+          subPath: 20-shop.json
+        - name: gateway-config
+          mountPath: /var/gateway/scripts/groovy/SignUpParams.groovy
+          subPath: SignUpParams.groovy
+        resources:
+          requests:
+            cpu: 100m
+            memory: 384Mi
+          limits:
+            cpu: "1"
+            memory: 768Mi
+      volumes:
+      - name: gateway-config
+        configMap:
+          name: identity-pinggateway

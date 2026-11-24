@@ -179,12 +179,25 @@ func (b *BFF) cookieName() string {
 }
 
 func (b *BFF) sessionCookie(id string, maxAge int) *http.Cookie {
-	return &http.Cookie{Name: b.cookieName(), Value: id, Path: "/", MaxAge: maxAge, HttpOnly: true,
-		Secure: b.secure(), SameSite: http.SameSiteLaxMode}
+	return expiring(&http.Cookie{Name: b.cookieName(), Value: id, Path: "/", MaxAge: maxAge, HttpOnly: true,
+		Secure: b.secure(), SameSite: http.SameSiteLaxMode})
+}
+
+// expiring gives a cookie that is being deleted (MaxAge < 0) a past Expires as well. Max-Age=0 alone is enough for
+// browsers, but PingGateway drops it when it rewrites Set-Cookie headers, and the deletion would turn into an empty
+// session cookie.
+func expiring(c *http.Cookie) *http.Cookie {
+	if c.MaxAge < 0 {
+		c.Expires = time.Unix(1, 0)
+	}
+	return c
 }
 
 // session returns the browser's session, or nil when it has none (or the store cannot be reached).
 func (b *BFF) session(r *http.Request) *Session {
+	if o, ok := r.Context().Value(sessionCtxKey{}).(sessionOverride); ok {
+		return o.s
+	}
 	c, err := r.Cookie(b.cookieName())
 	if err != nil || c.Value == "" {
 		return nil

@@ -66,7 +66,7 @@ func (b *BFF) sign(c pageContext) string {
 
 // buildContext assembles the context for one page request. full adds the history shown on the account page.
 func (b *BFF) buildContext(r *http.Request, s *Session, full bool) pageContext {
-	c := pageContext{AuthEnabled: b.oidc != nil}
+	c := pageContext{AuthEnabled: b.oidc != nil || b.cfg.gatewayKey != nil}
 	if r.URL.Path == "/cart" && r.URL.Query().Get("checkout") == "guest" {
 		c.CheckoutMode = "guest"
 	}

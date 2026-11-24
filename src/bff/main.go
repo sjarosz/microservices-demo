@@ -8,6 +8,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -26,6 +27,7 @@ type config struct {
 	scopes        []string
 	registerParam url.Values // extra authorization parameters that ask the provider for its sign-up page
 	contextKey    []byte
+	gatewayKey    []byte // set = a PingGateway sidecar signs in for us (gateway.go)
 	sessionTTL    time.Duration
 }
 
@@ -71,13 +73,22 @@ func main() {
 	if len(cfg.contextKey) < 16 {
 		log.Fatal("BFF_CONTEXT_KEY must be set (16+ characters): it signs the context the frontend trusts")
 	}
+	if v := os.Getenv("GATEWAY_IDENTITY_KEY"); v != "" {
+		key, err := base64.StdEncoding.DecodeString(v)
+		if err != nil || len(key) < 32 {
+			log.Fatal("GATEWAY_IDENTITY_KEY must be base64 of 32+ bytes: it verifies what the gateway sidecar says")
+		}
+		cfg.gatewayKey = key
+	}
 	b := &BFF{
 		cfg:      cfg,
 		sessions: newSessionStore(os.Getenv("REDIS_ADDR")),
 		customer: &customerClient{base: env("CUSTOMER_SERVICE_ADDR", "http://customerservice:8080"),
 			token: os.Getenv("INTERNAL_API_TOKEN")},
 	}
-	if cfg.issuer != "" {
+	if cfg.gatewayKey != nil {
+		log.Print("gateway mode: the PingGateway sidecar is the OIDC client, identity arrives in " + gatewayHeader)
+	} else if cfg.issuer != "" {
 		b.oidc = &oidcClient{cfg: cfg}
 	} else {
 		log.Print("OIDC_ISSUER is not set: sign-in is off and the shop behaves like the stock demo")
@@ -97,6 +108,7 @@ func main() {
 	mux.HandleFunc("GET /auth/login", b.login)
 	mux.HandleFunc("GET /auth/register", b.login)
 	mux.HandleFunc("GET /auth/callback", b.callback)
+	mux.HandleFunc("GET /auth/failed", b.gatewayFailed)
 	mux.HandleFunc("POST /auth/logout", b.logout)
 	mux.HandleFunc("GET /account", b.account)
 	mux.HandleFunc("POST /account/preferences", b.signedIn(b.savePreferences))
@@ -107,9 +119,14 @@ func main() {
 	mux.HandleFunc("/static/", b.passThrough)
 	mux.HandleFunc("/", b.page)
 
-	addr := ":" + env("PORT", "8080")
+	var handler http.Handler = mux
+	if cfg.gatewayKey != nil {
+		handler = b.withGateway(mux)
+	}
+	// LISTEN_ADDR narrows where the BFF listens, e.g. 127.0.0.1:8081 next to a gateway sidecar.
+	addr := env("LISTEN_ADDR", ":"+env("PORT", "8080"))
 	log.Printf("bff listening on %s, frontend %s, public %s, sessions in %s", addr, cfg.frontend, cfg.publicURL,
 		b.sessions.Name())
-	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	log.Fatal(srv.ListenAndServe())
 }
